@@ -1,0 +1,49 @@
+version: "3.8"
+
+services:
+  postgres1:
+    image: postgres:13
+    container_name: pg13-container1
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: test-db
+    ports:
+      - "5433:5432" # Port for external access
+    volumes:
+      - postgres_data1:/var/lib/postgresql/data # Data volume for persistence
+    networks:
+      - my_network
+
+  postgres2:
+    image: postgres:13
+    container_name: pg13-container2
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: test-db
+    ports:
+      - "5434:5432" # Different external port
+    volumes:
+      - postgres_data2:/var/lib/postgresql/data # Data volume for persistence
+    networks:
+      - my_network
+
+  ubuntu20:
+    image: ubuntu:20.04
+    container_name: bucardo-client
+    command: sleep infinity # Keep the container running
+    ports:
+      - "5436:5432" # Port for external access
+    networks:
+      - my_network
+    volumes:
+      - ./ubuntu_data:/data # Optional: Mount local volume to the container
+
+networks:
+  my_network:
+    driver: bridge # Use the default bridge network driver
+
+volumes:
+  postgres_data1:
+  postgres_data2:

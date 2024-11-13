@@ -1,0 +1,86 @@
+docker run --name pg13-container1 -e POSTGRES_USER=postgres -e POSTGRES_PASSWORD=postgres -e POSTGRES_DB=test-db -p 5433:5432 -d postgres:13
+
+docker pull ubuntu:20.04
+docker run -it --name bucardo-client ubuntu:20.04
+
+
+pgbench -i -s 50 -U postgres test-db
+pgbench -c 10 -j 2 -t 10000 -U postgres test-db
+
+
+# install bucardo on ubunut docker
+apt update && apt upgrade -y
+apt install -y sudo wget curl
+apt install -y postgresql-client libdbi-perl libdbd-pg-perl libboolean-perl libtest-simple-perl libdatetime-perl libdbix-safe-perl iputils-ping nano
+wget https://bucardo.org/downloads/Bucardo-5.6.0.tar.gz.asc
+wget https://bucardo.org/downloads/DBIx-Safe-1.2.5.tar.gz
+
+
+# adding database to bucardo
+
+bucardo add db source_db dbhost=pg13-container1 dbport=5432 dbname=test-db dbuser=postgres dbpass=postgres
+bucardo add db target_db dbhost=pg13-container2 dbport=5432 dbname=test-db dbuser=postgres dbpass=postgres
+
+bucardo add all tables --herd=exampleherd
+bucardo add all sequences --herd=exampleherd
+
+# adding sync to bucardo
+bucardo add sync dev_sync herd=exampleherd dbs=target_db:source,source_db:target onetimecopy=2
+
+
+docker ps
+docker exec -it bucardo-client bash
+
+
+
+# adding database to bucardo
+
+bucardo add db sarwa_source_db dbhost=pg13-container1 dbport=5432 dbname=sarwa_insurance dbuser=postgres dbpass=postgres
+bucardo add db sarwa_target_db dbhost=pg13-container2 dbport=5432 dbname=sarwa_insurance dbuser=postgres dbpass=postgres
+
+
+# adding tables and sequances to bucardo from source database
+
+bucardo add all tables db=sarwa_target_db --herd=sarwaHerd
+bucardo add all sequences db=sarwa_target_db --herd=sarwaHerd
+
+
+# create sync 
+bucardo add sync sarwa_sync herd=sarwaHerd dbs=sarwa_source_db:source,sarwa_target_db:target onetimecopy=2
+
+
+bucardo remove db sarwa_target_db --force
+bucardo add all tables db=sarwa_source_db --herd=sarwaHerd
+bucardo add all sequnaces db=sarwa_source_db --herd=sarwaHerd
+
+
+# to solve the problem of the table not being synced
+update current sync 
+bucardo stop 
+bucardo update sync sarwa_sync onetimecopy=2
+bucardo kick sarwa_sync
+bucardo start 
+
+# select counts of all tables in a database on current schema
+SELECT
+    schemaname || '.' || relname AS table_name,
+    n_live_tup AS row_count
+FROM
+    pg_stat_user_tables
+ORDER BY
+    row_count DESC;
+
+
+
+# create a backup of a database on a remote server (ddl & data)
+pg_dump -U username -h source_host -Fc source_database > backup.dump
+
+# restore a backup of a database on a remote server (ddl & data)
+pg_restore -U username -h target_host -d target_database -Fc backup.dump
+
+# create a backup of a database on a remote server (ddl only)
+pg_dump -U username -h host -s -d source_database > database_schema.sql
+
+# restore a backup of a database to new database on remote server (ddl only)
+psql -U username -h host -d target_database -f database_schema.sql
+
