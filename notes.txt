@@ -4,6 +4,7 @@ docker pull ubuntu:20.04
 docker run -it --name bucardo-client ubuntu:20.04
 
 
+# create sample database
 pgbench -i -s 50 -U postgres test-db
 pgbench -c 10 -j 2 -t 10000 -U postgres test-db
 
@@ -84,3 +85,37 @@ pg_dump -U username -h host -s -d source_database > database_schema.sql
 # restore a backup of a database to new database on remote server (ddl only)
 psql -U username -h host -d target_database -f database_schema.sql
 
+
+
+NOTES:
+
+1- any change on schema ddl (add|update|remove => table|columne|relation|constrain|sequance ... ) 
+  a) should reconfigure bucardo dbs and sync from scratch
+  b) should update ddl on destination 
+  
+  if a or b not happen -> sync stop and failed and no data sync between source and destination
+  
+  
+2- if sync is recoverd by do step 1 (a,b) -> missing data synced successfuly  
+
+
+
+Notes: 
+1- bucardo add sync sarwa_sync herd=sarwaHerd dbs=sarwa_target_db:source,sarwa_source_db:target onetimecopy=2
+
+onetimecopy=2
+sync and not duplicate data
+
+2- create bucardo schema on source db only to track changes
+
+3- If bucardo schema deleted from source db, any changes happen after deletion not be able to track, so if we restor sync connication again
+it will track only what changed after sync is back.
+example
+1) delete bucardo schema from  source db
+2) chnage data on source db tables
+table1 => add row a,b
+3) restore bucardo schema by reconfigure bucarod client again and start sync
+4) row a,b not migrate to target, becouse bucardo don't know that it was changed before 
+5) new row instered C
+6) c will be synced successful
+ 
