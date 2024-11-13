@@ -63,6 +63,7 @@ bucardo kick sarwa_sync
 bucardo start 
 
 # select counts of all tables in a database on current schema
+# not accurate 
 SELECT
     schemaname || '.' || relname AS table_name,
     n_live_tup AS row_count
@@ -71,6 +72,23 @@ FROM
 ORDER BY
     row_count DESC;
 
+# accurate but slow 
+CREATE OR REPLACE FUNCTION count_table_rows(schema_name TEXT, table_name TEXT)
+RETURNS BIGINT AS $$
+DECLARE
+  row_count BIGINT;
+BEGIN
+  EXECUTE format('SELECT COUNT(*) FROM %I.%I', schema_name, table_name)
+  INTO row_count;
+
+  RETURN row_count;
+END;
+$$ LANGUAGE plpgsql;
+
+SELECT table_name, count_table_rows('public', table_name) AS row_count
+FROM information_schema.tables
+WHERE table_schema = 'public'
+order by row_count desc, table_name desc ;
 
 
 # create a backup of a database on a remote server (ddl & data)
